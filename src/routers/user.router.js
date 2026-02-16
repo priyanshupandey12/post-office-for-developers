@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { requireAuth } = require('../middleware/auth');
-const validate = require("../middlewares/validate.middleware");
-const { updateProfileSchema } = require("../validators/user.validator");
+const { requireAuth } = require('@clerk/express');
+const validate = require("../middleware/validate.middleware");
+const { updateProfileSchema } = require("../utils/user.validation");
 const {
   getOrCreateUser,
   getCurrentUser,
