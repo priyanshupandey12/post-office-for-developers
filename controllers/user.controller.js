@@ -17,7 +17,7 @@ const getOrCreateUser = async (req, res, next) => {
    
       user = await User.create({
         clerkId: clerkUserId,
-        email: clerkUser.emailAddresses[0].emailAddress,
+        email: clerkUser.emailAddresses?.[0]?.emailAddress,
         name: `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || 'User',
         profilePicture: clerkUser.imageUrl || '',
         role: 'user'
@@ -190,6 +190,8 @@ const getLeaderboard = async (req, res) => {
     });
   }
 };
+
+
 
 module.exports = {
   getOrCreateUser,

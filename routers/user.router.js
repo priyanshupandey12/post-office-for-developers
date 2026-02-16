@@ -23,7 +23,7 @@ router.get('/me',
 router.patch('/profile', 
   requireAuth(), 
   getOrCreateUser, 
-  validate(updateProfile),
+  validate(updateProfileSchema),
   updateProfile
 );
 
