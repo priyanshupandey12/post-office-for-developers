@@ -3,7 +3,7 @@ const { clerkClient } = require('@clerk/express');
 
 const getOrCreateUser = async (req, res, next) => {
   try {
-    const clerkUserId = req.auth.userId;
+     const { userId: clerkUserId } = await req.auth();
     
    
     let user = await User.findOne({ clerkId: clerkUserId });

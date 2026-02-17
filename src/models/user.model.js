@@ -94,20 +94,6 @@ const userSchema = new mongoose.Schema({
     ref: 'Problem'
   }],
   
-  
-  problemsPostedThisMonth: {
-    type: Number,
-    default: 0
-  },
-  lastPostMonth: {
-    type: Number,
-    default: () => new Date().getMonth()
-  },
-  lastPostYear: {
-    type: Number,
-    default: () => new Date().getFullYear()
-  },
-  
 
   totalProblemsPosted: {
     type: Number,

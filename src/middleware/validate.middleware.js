@@ -5,7 +5,11 @@ const validate = (schema) => (req, res, next) => {
   } catch (err) {
     return res.status(400).json({
       success: false,
-      error: err.errors?.[0]?.message || "Invalid request data"
+      error: "Validation failed",
+      details: err.issues?.map(e => ({
+        field: e.path.join("."),
+        message: e.message
+      }))
     });
   }
 };

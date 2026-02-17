@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('@clerk/express');
-const validate = require("../middleware/validate.middleware");
-const { updateProfileSchema } = require("../utils/user.validation");
+const validate = require("../middleware/validate.middleware.js");
+const { updateProfileSchema } = require("../utils/user.validation.js");
 const {
   getOrCreateUser,
   getCurrentUser,
@@ -10,7 +10,7 @@ const {
   switchRole,
   getUserById,
   getLeaderboard
-} = require('../controllers/user.controller');
+} = require('../controllers/user.controller.js');
 
 
 router.get('/me', 
