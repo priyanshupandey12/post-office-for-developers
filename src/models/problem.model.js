@@ -25,19 +25,6 @@ const problemSchema = new mongoose.Schema(
        required: [true, 'Category is required'],
       index: true
     },
-    otherCategoryDescription: {
-      type: String,
-      maxlength: [100, 'Max 100 characters'],
-       validate: {
-       validator: function(val) {
-      if (this.category === 'other' && (!val || val.trim() === '')) {
-        return false; 
-      }
-      return true;
-      },
-    message: 'Please describe your category'
-    }
-     },
 
     affectedAudience: {
       type: [String],
@@ -132,6 +119,16 @@ const problemSchema = new mongoose.Schema(
     enum: ['open', 'in_review', 'solved', 'closed'],
     default: 'open'
   },
+    priorityScore: {
+    type: Number,
+    default: 0,
+    index: true
+  },
+    submissionCount: {
+    type: Number,
+    default: 0,
+    index: true
+  },
   deadline: {
     type: Date,
     required: [true, 'Deadline is required'],
@@ -144,7 +141,8 @@ const problemSchema = new mongoose.Schema(
   },
   submissions: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Submission'
+    ref: 'Submission',
+    default: []
   }],
   selectedWinner: {
     type: mongoose.Schema.Types.ObjectId,
@@ -157,40 +155,46 @@ const problemSchema = new mongoose.Schema(
   }
 
   },
-  { timestamps: true }
+{
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
+}
 );
 
+problemSchema.pre('save', function(next) {
 
-problemSchema.virtual('submissionCount').get(function() {
-  return this.submissions.length;
-});
-
-
-problemSchema.virtual('isExpired').get(function() {
-  return new Date() > this.deadline;
-});
-
-
-problemSchema.virtual('priorityScore').get(function() {
   const painScores = {
     'safety-risk': 5,
-    'stressful': 4,
+    stressful: 4,
     'costs-money': 3,
     'time-consuming': 2,
     'mild-inconvenience': 1
   };
 
   const frequencyScores = {
-    'daily': 4,
-    'weekly': 3,
-    'monthly': 2,
+    daily: 4,
+    weekly: 3,
+    monthly: 2,
     'rare-but-serious': 2
   };
 
-  const pain = painScores[this.painLevel] || 0;
-  const freq = frequencyScores[this.frequency] || 0;
+  this.priorityScore =
+    (painScores[this.painLevel] || 0) +
+    (frequencyScores[this.frequency] || 0);
 
-  return pain + freq;
+  this.submissionCount = this.submissions?.length || 0;
+
+  next();
 });
+
+problemSchema.virtual('isExpired').get(function() {
+  return new Date() > this.deadline;
+});
+
+
+
+
+problemSchema.index({ title: 1 });
 
 module.exports = mongoose.model('Problem', problemSchema);

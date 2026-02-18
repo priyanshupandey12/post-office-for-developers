@@ -1,41 +1,41 @@
 
 const CATEGORIES = [
-  "Healthcare",
-  "Transportation",
-  "Education",
-  "Finance",
-  "Workplace",
-  "Retail",
-  "Government",
-  "Housing",
-  "Community",
-  "Productivity",
-  "Other"
+        'healthcare',
+        'transportation',
+        'education',
+        'finance',
+        'workplace',
+        'shopping-retail',
+        'government-services',
+        'housing',
+        'social-community',
+        'productivity',
+        'other'
 ];
 
 const SEVERITY = [
-  "Mild",
-  "Time-Consuming",
-  "Costly",
-  "Stressful",
-  "Safety-Risk"
+   'mild-inconvenience',
+    'time-consuming',
+    'costs-money',
+    'stressful',
+        'safety-risk'
 ];
 
 const FREQUENCY = [
-  "Daily",
-  "Weekly",
-  "Monthly",
-  "Rare"
+  "daily",
+  "weekly",
+  "monthly",
+  "rare-but-serious"
 ];
 
 const USERS_AFFECTED = [
-  "Students",
-  "Working Professionals",
-  "Elderly",
-  "Business Owners",
-  "Parents",
-  "Everyone",
-  "Other"
+          'students',
+          'working-professionals',
+          'elderly',
+          'business-owners',
+          'developers',
+          'parents',
+          'everyone'
 ];
 
 module.exports = { CATEGORIES, SEVERITY, FREQUENCY, USERS_AFFECTED };

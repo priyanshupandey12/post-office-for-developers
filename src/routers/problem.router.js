@@ -6,7 +6,20 @@ const { createProblemSchema } = require("../utils/problem.validation");
 const {
   getOrCreateUser,
 } = require('../controllers/user.controller');
-const {createProblem}=require('../controllers/problem.controller')
+const {createProblem,getAllProblems,
+  getProblemById,  
+  updateProblem,
+  getMyProblems,
+  closeProblem}=require('../controllers/problem.controller')
+
+  router.get('/user/my-problems',
+  requireAuth(),
+  getOrCreateUser,
+  getMyProblems
+);
+router.get('/', 
+  getAllProblems);
+router.get('/:id', getProblemById);
 
 router.post('/',
   requireAuth(),
@@ -15,4 +28,16 @@ router.post('/',
   createProblem
 );
 
+router.patch('/:id',
+  requireAuth(),
+  getOrCreateUser,
+  updateProblem
+);
+
+
+router.patch('/:id/close',
+  requireAuth(),
+  getOrCreateUser,
+  closeProblem
+);
 module.exports=router
