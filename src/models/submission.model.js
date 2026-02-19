@@ -100,12 +100,6 @@ const submissionSchema = new mongoose.Schema({
   },
 
 
-  votes: {
-    type: Number,
-    default: 0,
-    min: 0
-  },
-
   votedBy: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
@@ -158,7 +152,6 @@ submissionSchema.virtual('voteCount').get(function() {
 submissionSchema.methods.addVote = async function(userId) {
   if (!this.votedBy.includes(userId)) {
     this.votedBy.push(userId);
-    this.votes = this.votedBy.length;
     await this.save();
     return true;
   }
@@ -170,7 +163,6 @@ submissionSchema.methods.removeVote = async function(userId) {
   const index = this.votedBy.indexOf(userId);
   if (index > -1) {
     this.votedBy.splice(index, 1);
-    this.votes = this.votedBy.length;
     await this.save();
     return true;
   }
@@ -178,37 +170,6 @@ submissionSchema.methods.removeVote = async function(userId) {
 };
 
 
-submissionSchema.post('save', async function(doc) {
-  if (this.isNew) {
-    const Problem = mongoose.model('Problem');
-    await Problem.findByIdAndUpdate(doc.problemId, {
-      $addToSet: { submissions: doc._id },
-      $set: { status: 'in_review' }
-    });
-
-  
-    const User = mongoose.model('User');
-    await User.findByIdAndUpdate(doc.developerId, {
-      $inc: { totalSubmissions: 1 }
-    });
-  }
-});
-
-
-submissionSchema.post('findOneAndDelete', async function(doc) {
-  if (doc) {
-    const Problem = mongoose.model('Problem');
-    await Problem.findByIdAndUpdate(doc.problemId, {
-      $pull: { submissions: doc._id }
-    });
-
-   
-    const User = mongoose.model('User');
-    await User.findByIdAndUpdate(doc.developerId, {
-      $inc: { totalSubmissions: -1 }
-    });
-  }
-});
 
 
 submissionSchema.set('toJSON', { virtuals: true });

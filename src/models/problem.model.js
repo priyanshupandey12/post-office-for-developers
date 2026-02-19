@@ -152,7 +152,13 @@ const problemSchema = new mongoose.Schema(
   views: {
     type: Number,
     default: 0
-  }
+  },
+upvotes: { type: Number, default: 0 },
+upvotedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  originalDeadline: {
+  type: Date,
+  default: null
+}
 
   },
 {

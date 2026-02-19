@@ -10,7 +10,8 @@ const {createProblem,getAllProblems,
   getProblemById,  
   updateProblem,
   getMyProblems,
-  closeProblem}=require('../controllers/problem.controller')
+  voteProblem
+}=require('../controllers/problem.controller')
 
   router.get('/user/my-problems',
   requireAuth(),
@@ -34,10 +35,10 @@ router.patch('/:id',
   updateProblem
 );
 
-
-router.patch('/:id/close',
+router.patch('/:id/vote',
   requireAuth(),
   getOrCreateUser,
-  closeProblem
+  voteProblem
 );
+
 module.exports=router

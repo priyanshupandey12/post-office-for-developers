@@ -29,7 +29,7 @@ const createProblem=async(req,res)=>{
     let problem;
 
     await session.withTransaction(async () => {
-    const problemsThisMonth = await Problem.countDocuments({
+     problemsThisMonth = await Problem.countDocuments({
     postedBy: req.user._id,
     createdAt: { $gte: startOfMonth }
   }, { session });
@@ -38,6 +38,25 @@ const createProblem=async(req,res)=>{
     throw Object.assign(new Error('Monthly limit reached'), { code: 'LIMIT_REACHED' });
   }
 
+    const stopWords = ['is', 'not', 'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with'];
+  const significantWords = title
+    .split(' ')
+    .filter(word => !stopWords.includes(word.toLowerCase()))
+    .slice(0, 4);
+
+  if (significantWords.length > 0) {
+    const similarProblem = await Problem.findOne({
+      category: category,
+      title: { $regex: significantWords.join('|'), $options: 'i' }
+    }, null, { session });
+
+    if (similarProblem) {
+      throw Object.assign(
+        new Error('A similar problem may already exist'),
+        { code: 'POSSIBLE_DUPLICATE', existingProblemId: similarProblem._id }
+      );
+    }
+  }
 
       const [created] = await Problem.create([{
         title,
@@ -61,7 +80,6 @@ const createProblem=async(req,res)=>{
       problem = created;
     });
 
-    session.endSession();
 
     return res.status(201).json({
       success: true,
@@ -101,7 +119,7 @@ const getAllProblems = async (req, res) => {
       painLevel,
       frequency,
       affectedAudience,
-      status = 'open',
+      status = '',
       search,
       page = 1,
       limit = 10,
@@ -200,22 +218,21 @@ const getProblemById = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Problem ID is required' });
     }
 
-    const mongoose = require('mongoose');
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ success: false, error: 'Invalid problem ID format' });
     }
 
     const problem = await Problem.findById(id)
       .populate('postedBy', 'name profilePicture bio location')
-      // .populate({
-      //   path: 'submissions',
-      //   populate: {
-      //     path: 'developerId',
-      //     select: 'name profilePicture wins rating totalSubmissions'
-      //   },
-      //   options: { sort: { votes: -1 } }
-      // })
-      // .populate('selectedWinner', 'title developerId votes techStack githubLink liveLink');
+      .populate({
+        path: 'submissions',
+        populate: {
+          path: 'developerId',
+          select: 'name profilePicture wins rating totalSubmissions'
+        },
+        options: { sort: { votes: -1 } }
+      })
+      .populate('selectedWinner', 'title developerId votes techStack githubLink liveLink');
 
     if (!problem) {
       return res.status(404).json({ success: false, error: 'Problem not found' });
@@ -235,148 +252,86 @@ const getProblemById = async (req, res) => {
 const updateProblem = async (req, res) => {
   try {
     const { id } = req.params;
-    const {
-      title,
-      category,
-      affectedAudience,
-      description,
-      painLevel,
-      frequency,
-      hasExistingSolutions,
-      existingSolutionsDescription,
-      desiredOutcome,
-      deadline
-    } = req.body;
-
-  
-    const problem = await Problem.findById(id);
-
-    if (!problem) {
-      return res.status(404).json({
-        success: false,
-        error: 'Problem not found'
-      });
-    }
-
-  
-    if (problem.postedBy.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        error: 'You are not authorized to update this problem'
-      });
-    }
-
-   
-    if (problem.status !== 'open') {
-      return res.status(400).json({
-        success: false,
-        error: `Cannot update problem with status: ${problem.status}. Only open problems can be edited.`
-      });
-    }
-
-   
-    if (problem.submissions.length > 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Cannot update problem that already has submissions'
-      });
-    }
-
-    const updateFields = {};
-    if (title !== undefined) updateFields.title = title;
-    if (category !== undefined) updateFields.category = category;
-    if (affectedAudience !== undefined) updateFields.affectedAudience = affectedAudience;
-    if (description !== undefined) updateFields.description = description;
-    if (painLevel !== undefined) updateFields.painLevel = painLevel;
-    if (frequency !== undefined) updateFields.frequency = frequency;
-    if (hasExistingSolutions !== undefined) updateFields.hasExistingSolutions = hasExistingSolutions;
-    if (existingSolutionsDescription !== undefined) updateFields.existingSolutionsDescription = existingSolutionsDescription;
-    if (desiredOutcome !== undefined) updateFields.desiredOutcome = desiredOutcome;
-    if (deadline !== undefined) updateFields.deadline = deadline;
-
-
-    const updatedProblem = await Problem.findByIdAndUpdate(
-      id,
-      updateFields,
-      { 
-        new: true, 
-        runValidators: true 
-      }
-    ).populate('postedBy', 'name profilePicture');
-
-    res.json({
-      success: true,
-      message: 'Problem updated successfully',
-      problem: updatedProblem
-    });
-
-  } catch (error) {
-
-    if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map(e => e.message);
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: messages
-      });
-    }
-
-    console.error('Update problem error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to update problem. Please try again.'
-    });
-  }
-};
-
-const closeProblem = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const problem = await Problem.findById(id);
-
-    if (!problem) {
-      return res.status(404).json({
-        success: false,
-        error: 'Problem not found'
-      });
-    }
-
-
-    if (problem.postedBy.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        error: 'You are not authorized to close this problem'
-      });
-    }
+    const { description, deadline } = req.body;
 
  
-    if (['solved', 'closed'].includes(problem.status)) {
+    if (!description && !deadline) {
       return res.status(400).json({
         success: false,
-        error: `Problem is already ${problem.status}`
+        error: 'Nothing to update. Provide description or deadline.'
       });
     }
 
-    problem.status = 'closed';
+    const problem = await Problem.findById(id);
+
+    if (!problem) {
+      return res.status(404).json({ success: false, error: 'Problem not found' });
+    }
+
+    if (problem.postedBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, error: 'Not authorized' });
+    }
+
+    if (problem.status !== 'open') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Only open problems can be updated' 
+      });
+    }
+
+    
+if (deadline) {
+  const newDeadline = new Date(deadline);
+  
+  if (isNaN(newDeadline)) {
+    return res.status(400).json({ success: false, error: 'Invalid deadline format' });
+  }
+
+  if (newDeadline <= new Date()) {
+    return res.status(400).json({ success: false, error: 'Deadline must be in the future' });
+  }
+
+  if (newDeadline <= problem.deadline) {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'New deadline must be later than current deadline' 
+    });
+  }
+
+ 
+  if (!problem.originalDeadline) {
+    problem.originalDeadline = problem.deadline;
+  }
+
+  problem.deadline = newDeadline;
+}
+
+    if (description) {
+ 
+      if (problem.submissions.length > 0) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Cannot update description once submissions have been received' 
+        });
+      }
+      problem.description = description;
+    }
+
     await problem.save();
 
     res.json({
       success: true,
-      message: 'Problem closed successfully',
-      problem: {
-        _id: problem._id,
-        title: problem.title,
-        status: problem.status
-      }
+      message: 'Problem updated successfully',
+      problem
     });
 
   } catch (error) {
-    console.error('Close problem error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to close problem. Please try again.'
-    });
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(e => e.message);
+      return res.status(400).json({ success: false, error: 'Validation failed', details: messages });
+    }
+    console.error('Update problem error:', error);
+    res.status(500).json({ success: false, error: 'Failed to update problem. Please try again.' });
   }
 };
 
@@ -424,7 +379,7 @@ const getMyProblems = async (req, res) => {
 
 
     const enrichedProblems = problems.map(problem => ({
-      ...problem,
+      ...problem.toObject(),
       submissionCount: problem.submissions.length,
       hasWinner: !!problem.selectedWinner,
       daysUntilDeadline: Math.ceil((new Date(problem.deadline) - new Date()) / (1000 * 60 * 60 * 24)),
@@ -475,7 +430,49 @@ const getMyProblems = async (req, res) => {
   }
 };
 
+const voteProblem = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id;
 
+    const problem = await Problem.findById(id);
+
+    if (!problem) {
+      return res.status(404).json({ success: false, error: 'Problem not found' });
+    }
+
+ 
+    if (problem.postedBy.toString() === userId.toString()) {
+      return res.status(403).json({ 
+        success: false, 
+        error: 'You cannot upvote your own problem' 
+      });
+    }
+
+    const alreadyVoted = problem.upvotedBy.includes(userId);
+
+    if (alreadyVoted) {
+  
+      problem.upvotedBy.pull(userId);
+    } else {
+      problem.upvotedBy.push(userId);
+    }
+
+    problem.upvotes = problem.upvotedBy.length;
+    await problem.save();
+
+    res.json({
+      success: true,
+      message: alreadyVoted ? 'Upvote removed' : 'Problem upvoted',
+      upvotes: problem.upvotes,
+      hasUpvoted: !alreadyVoted
+    });
+
+  } catch (error) {
+    console.error('Vote problem error:', error);
+    res.status(500).json({ success: false, error: 'Failed to vote. Please try again.' });
+  }
+};
 
 module.exports={
   createProblem,
@@ -483,5 +480,5 @@ module.exports={
   getProblemById, 
   updateProblem,
   getMyProblems,
-  closeProblem
+  voteProblem
 }
