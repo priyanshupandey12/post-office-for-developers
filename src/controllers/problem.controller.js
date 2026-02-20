@@ -150,15 +150,15 @@ const getAllProblems = async (req, res) => {
       ];
     }
 
-    // pagination
+
     const skip = (page - 1) * limit;
 
-    // default sort
+
     let sortOption = { createdAt: -1 };
 
     if (sortBy === 'deadline') {
 
-      // exclude expired
+   
       filter.deadline = { $gt: new Date() };
 
       sortOption = { deadline: 1 };
@@ -223,7 +223,7 @@ const getProblemById = async (req, res) => {
     }
 
     const problem = await Problem.findById(id)
-      .populate('postedBy', 'name profilePicture bio location')
+      .populate('postedBy', 'name profilePicture bio location clerkId')
       .populate({
         path: 'submissions',
         populate: {

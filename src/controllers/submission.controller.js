@@ -53,6 +53,7 @@ if (submissionCount >= 10) {
 
     await Problem.findByIdAndUpdate(problemId, {
          $addToSet: { submissions: submission._id },
+           $inc: { submissionCount: 1 },
           $set: { status: 'in_review' }
          });
 

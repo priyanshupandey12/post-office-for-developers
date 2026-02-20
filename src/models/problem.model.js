@@ -168,8 +168,7 @@ upvotedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 }
 );
 
-problemSchema.pre('save', function(next) {
-
+problemSchema.pre('save', async function() {
   const painScores = {
     'safety-risk': 5,
     stressful: 4,
@@ -190,8 +189,6 @@ problemSchema.pre('save', function(next) {
     (frequencyScores[this.frequency] || 0);
 
   this.submissionCount = this.submissions?.length || 0;
-
-  next();
 });
 
 problemSchema.virtual('isExpired').get(function() {

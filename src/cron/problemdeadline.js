@@ -5,7 +5,7 @@ const Submission = require('../models/submission.model');
 const handleExpiredProblems = async () => {
   try {
     const now = new Date();
-    const gracePeriodEnd = new Date(now - 7 * 24 * 60 * 60 * 1000);
+    const gracePeriodEnd = new Date(now - 6 * 60 * 60 * 1000);
 
     const pendingProblems = await Problem.find({
       status: 'in_review',
