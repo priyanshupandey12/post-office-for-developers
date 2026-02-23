@@ -42,14 +42,22 @@ const getOrCreateUser = async (req, res, next) => {
 
 const getCurrentUser = async (req, res) => {
   try {
-    res.json({
+      res.json({
       success: true,
       user: {
         id: req.user._id,
         email: req.user.email,
         name: req.user.name,
-        role: req.user.role,
         profilePicture: req.user.profilePicture,
+        bio: req.user.bio,
+        githubUrl: req.user.githubUrl,
+        linkedinUrl: req.user.linkedinUrl,
+        websiteUrl: req.user.websiteUrl,
+        wins: req.user.wins,
+        rating: req.user.rating,
+        totalSubmissions: req.user.totalSubmissions,
+        totalProblemsPosted: req.user.totalProblemsPosted,
+        createdAt: req.user.createdAt,
       }
     });
   } catch (error) {
@@ -63,109 +71,46 @@ const getCurrentUser = async (req, res) => {
 
 const updateProfile = async (req, res) => {
   try {
+  
+    const allowedFields = ['bio', 'skills', 'githubUrl', 'linkedinUrl', 'websiteUrl'];
+    
+    const updateData = {};
+    allowedFields.forEach(field => {
+      if (req.body[field] !== undefined) {
+        updateData[field] = req.body[field];
+      }
+    });
+
+
+    if (updateData.role && updateData.role !== 'developer') {
+      delete updateData.role;
+    }
 
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
-      req.body,
+      updateData,
       { new: true, runValidators: true }
-    ).select("-clerkId");
+    ).select('-clerkId -email -totalProblemsPosted -totalSubmissions -wins -rating -portfolio');
 
     if (!updatedUser) {
-      return res.status(404).json({
-        success: false,
-        error: "User not found"
-      });
+      return res.status(404).json({ success: false, error: 'User not found' });
     }
 
-    res.json({
-      success: true,
-      message: "Profile updated successfully",
-      user: updatedUser
-    });
+    res.json({ success: true, message: 'Profile update ho gaya!', user: updatedUser });
 
   } catch (error) {
-
-    if (error.name === "ValidationError") {
+    if (error.name === 'ValidationError') {
       return res.status(400).json({
         success: false,
-        error: Object.values(error.errors)
-          .map(e => e.message)
-          .join(", ")
+        error: Object.values(error.errors).map(e => e.message).join(', ')
       });
     }
-
-    res.status(500).json({
-      success: false,
-      error: "Failed to update profile"
-    });
+    res.status(500).json({ success: false, error: 'Profile update nahi ho payi' });
   }
 };
 
 
-const switchRole = async (req, res) => {
-  try {
-    const { role } = req.body;
-    
 
-    if (!role || !['user', 'developer'].includes(role)) {
-      return res.status(400).json({ 
-        success: false,
-        error: 'Invalid role. Must be "user" or "developer"' 
-      });
-    }
-    
-
-    req.user.role = role;
-    await req.user.save();
-    
-    res.json({
-      success: true,
-      message: `Role updated to ${role}`,
-      user: {
-        id: req.user._id,
-        role: req.user.role
-      }
-    });
-  } catch (error) {
-    console.error(' Switch role error:', error);
-    res.status(500).json({ 
-      success: false,
-      error: error.message 
-    });
-  }
-};
-
-
-const getUserById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const user = await User.findById(id)
-      .select('-clerkId') 
-      .populate({
-        path: 'portfolio',
-        select: 'title category status createdAt'
-      });
-    
-    if (!user) {
-      return res.status(404).json({ 
-        success: false,
-        error: 'User not found' 
-      });
-    }
-    
-    res.json({
-      success: true,
-      user
-    });
-  } catch (error) {
-    console.error('❌ Get user by ID error:', error);
-    res.status(500).json({ 
-      success: false,
-      error: error.message 
-    });
-  }
-};
 
 
 const getLeaderboard = async (req, res) => {
@@ -197,7 +142,5 @@ module.exports = {
   getOrCreateUser,
   getCurrentUser,
   updateProfile,
-  switchRole,
-  getUserById,
   getLeaderboard
 };

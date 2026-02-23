@@ -29,30 +29,13 @@ const userSchema = new mongoose.Schema({
   },
   
 
-  role: {
-    type: String,
-    enum: ['user', 'developer'],
-    default: 'user'
-  },
   
-
   bio: {
     type: String,
     maxlength: 500,
     default: ''
   },
   
-
-  skills: {
-    type: [String],
-    default: [],
-    validate: {
-      validator: function(arr) {
-        return arr.length <= 20;
-      },
-      message: 'Maximum 20 skills allowed'
-    }
-  },
   githubUrl: {
     type: String,
     default: '',

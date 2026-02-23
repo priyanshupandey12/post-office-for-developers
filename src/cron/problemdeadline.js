@@ -18,30 +18,34 @@ const handleExpiredProblems = async () => {
     for (const problem of pendingProblems) {
 
       const submissions = await Submission.find({
-        problemId: problem._id,
-        status: 'submitted'
-      }).sort({ votes: -1, createdAt: 1 });
+             problemId: problem._id,
+           status: 'submitted'
+               }).sort({ createdAt: 1 });
+
+if (!submissions.length) {
+  problem.status = 'closed';
+  await problem.save();
+  continue;
+}
 
 
-      if (!submissions.length) {
-        problem.status = 'closed';
-        await problem.save();
-        console.log(`No submissions — problem closed: ${problem._id}`);
-        continue;
-      }
+submissions.sort((a, b) =>
+  (b.votedBy?.length || 0) - (a.votedBy?.length || 0) ||
+  new Date(a.createdAt) - new Date(b.createdAt)
+);
 
-      const highestVotes = submissions[0].votes;
-      const topSubmissions = submissions.filter(s => s.votes === highestVotes);
+const highestVotes = submissions[0].votedBy?.length || 0;
+const topSubmissions = submissions.filter(s =>
+  (s.votedBy?.length || 0) === highestVotes
+);
 
-      let winner;
-      if (topSubmissions.length === 1) {
-        winner = topSubmissions[0];
-        console.log(`Clear winner: ${winner._id}`);
-      } else {
-    
-        winner = topSubmissions[0];
-        console.log(`Tie — earliest submission wins: ${winner._id}`);
-      }
+
+
+     const winner = topSubmissions[0];
+console.log(topSubmissions.length === 1 
+  ? `Clear winner: ${winner._id}` 
+  : `Tie — earliest submission wins: ${winner._id}`
+);
 
       winner.isWinner = true;
       winner.status = 'accepted';

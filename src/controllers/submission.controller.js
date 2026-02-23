@@ -123,7 +123,7 @@ const getMySubmissions = async (req, res) => {
 
     const [submissions, total] = await Promise.all([
       Submission.find(filter)
-        .populate('problemId', 'title category deadline status')
+        .populate('problemId', 'title category deadline status submissionCount selectedWinner')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit)),
@@ -297,6 +297,44 @@ const voteSubmission = async (req, res) => {
   }
 };
 
+const selectWinner = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const submission = await Submission.findById(id);
+    if (!submission) return res.status(404).json({ success: false, error: 'Submission not Found' });
+
+    const problem = await Problem.findById(submission.problemId);
+    if (!problem) return res.status(404).json({ success: false, error: 'Problem not Found' });
+
+    if (problem.postedBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, error: 'Sirf poster winner select kar sakta hai' });
+    }
+
+    if (problem.selectedWinner) {
+      return res.status(400).json({ success: false, error: 'Winner already select ho chuka hai' });
+    }
+
+    await Submission.updateMany({ problemId: problem._id }, { isWinner: false, status: 'submitted' });
+
+    submission.isWinner = true;
+    submission.status = 'accepted';
+    await submission.save();
+
+    problem.selectedWinner = submission._id;
+    problem.status = 'solved';
+    await problem.save();
+
+    await User.findByIdAndUpdate(submission.developerId, { $inc: { wins: 1 } });
+
+    res.json({ success: true, message: 'Winner select ho gaya!', submission });
+
+  } catch (error) {
+    console.error('Select winner error:', error);
+    res.status(500).json({ success: false, error: 'Kuch gadbad ho gayi' });
+  }
+};
+
 module.exports = {
   createSubmission,
   getSubmissionsByProblem,
@@ -304,5 +342,6 @@ module.exports = {
   getSubmissionById,
   updateSubmission,
   deleteSubmission,
-  voteSubmission
+  voteSubmission,
+  selectWinner
 };

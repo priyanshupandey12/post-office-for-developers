@@ -368,7 +368,7 @@ const getMyProblems = async (req, res) => {
       .limit(parseInt(limit))
       .populate({
         path: 'submissions',
-        select: 'title developerId isWinner votes createdAt',
+        select: 'title developerId isWinner votedBy createdAt',
         populate: {
           path: 'developerId',
           select: 'name profilePicture'

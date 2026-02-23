@@ -7,8 +7,6 @@ const {
   getOrCreateUser,
   getCurrentUser,
   updateProfile,
-  switchRole,
-  getUserById,
   getLeaderboard
 } = require('../controllers/user.controller.js');
 
@@ -28,16 +26,9 @@ router.patch('/profile',
 );
 
 
-router.put('/role', 
-  requireAuth(), 
-  getOrCreateUser, 
-  switchRole
-);
-
 
 router.get('/leaderboard', getLeaderboard);
 
 
-router.get('/:id', getUserById);
 
 module.exports = router;

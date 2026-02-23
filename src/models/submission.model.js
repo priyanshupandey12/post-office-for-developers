@@ -145,7 +145,7 @@ submissionSchema.virtual('hasVideoDemo').get(function() {
 
 
 submissionSchema.virtual('voteCount').get(function() {
-  return this.votedBy.length;
+return this.votedBy?.length || 0;
 });
 
 

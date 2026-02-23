@@ -9,7 +9,8 @@ const {
   getSubmissionById,
   updateSubmission,
   deleteSubmission,
-  voteSubmission
+  voteSubmission,
+  selectWinner
 } = require('../controllers/submission.controller');
 
 
@@ -26,5 +27,7 @@ router.patch('/:id/vote', requireAuth(), getOrCreateUser, voteSubmission);
 router.patch('/:id', requireAuth(), getOrCreateUser, updateSubmission);
 
 router.delete('/:id', requireAuth(), getOrCreateUser, deleteSubmission);
+
+router.patch('/:id/winner', requireAuth(), getOrCreateUser, selectWinner);
 
 module.exports = router;
