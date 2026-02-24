@@ -1,4 +1,5 @@
 const User=require('../models/user.model')
+const Submission = require('../models/submission.model');
 const { clerkClient } = require('@clerk/express');
 
 const getOrCreateUser = async (req, res, next) => {
@@ -116,23 +117,62 @@ const updateProfile = async (req, res) => {
 const getLeaderboard = async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 50;
-    
-    const developers = await User.find({ role: 'developer' })
-      .sort({ wins: -1, rating: -1, totalSubmissions: -1 })
-      .limit(limit)
-      .select('name profilePicture wins rating totalSubmissions skills');
-    
-    res.json({
-      success: true,
-      count: developers.length,
-      leaderboard: developers
-    });
+    const period = req.query.period || 'all'; 
+
+
+    let dateFilter = {};
+    if (period === 'month') {
+      dateFilter = { createdAt: { $gte: new Date(new Date() - 30 * 24 * 60 * 60 * 1000) } };
+    } else if (period === 'week') {
+      dateFilter = { createdAt: { $gte: new Date(new Date() - 7 * 24 * 60 * 60 * 1000) } };
+    }
+
+
+    const votesData = await Submission.aggregate([
+      { $match: { ...dateFilter } },
+      {
+        $group: {
+          _id: '$developerId',
+          totalVotes: { $sum: { $size: '$votedBy' } },
+          totalSubmissions: { $sum: 1 },
+          wins: { $sum: { $cond: ['$isWinner', 1, 0] } }
+        }
+      }
+    ]);
+
+
+    const developerIds = votesData.map(d => d._id);
+    const users = await User.find({ _id: { $in: developerIds } })
+      .select('name profilePicture wins totalSubmissions rating');
+
+
+    const leaderboard = votesData.map(d => {
+      const user = users.find(u => u._id.toString() === d._id?.toString());
+      if (!user) return null;
+
+      const score = (d.wins * 10) + d.totalVotes + d.totalSubmissions;
+
+      return {
+        userId: user._id,
+        name: user.name,
+        profilePicture: user.profilePicture,
+        wins: d.wins,
+        totalVotes: d.totalVotes,
+        totalSubmissions: d.totalSubmissions,
+        rating: user.rating,
+        score,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((d, idx) => ({ ...d, rank: idx + 1 }));
+
+    res.json({ success: true, count: leaderboard.length, period, leaderboard });
+
   } catch (error) {
-    console.error(' Get leaderboard error:', error);
-    res.status(500).json({ 
-      success: false,
-      error: error.message 
-    });
+    console.error('Leaderboard error:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 };
 
