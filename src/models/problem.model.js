@@ -195,9 +195,7 @@ problemSchema.virtual('isExpired').get(function() {
   return new Date() > this.deadline;
 });
 
+problemSchema.index({ title: "text", description: "text" });
 
-
-
-problemSchema.index({ title: 1 });
 
 module.exports = mongoose.model('Problem', problemSchema);

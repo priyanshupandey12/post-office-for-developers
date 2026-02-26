@@ -172,6 +172,7 @@ submissionSchema.methods.removeVote = async function(userId) {
 
 
 
+
 submissionSchema.set('toJSON', { virtuals: true });
 submissionSchema.set('toObject', { virtuals: true });
 

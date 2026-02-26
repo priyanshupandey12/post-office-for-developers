@@ -38,25 +38,6 @@ const createProblem=async(req,res)=>{
     throw Object.assign(new Error('Monthly limit reached'), { code: 'LIMIT_REACHED' });
   }
 
-    const stopWords = ['is', 'not', 'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with'];
-  const significantWords = title
-    .split(' ')
-    .filter(word => !stopWords.includes(word.toLowerCase()))
-    .slice(0, 4);
-
-  if (significantWords.length > 0) {
-    const similarProblem = await Problem.findOne({
-      category: category,
-      title: { $regex: significantWords.join('|'), $options: 'i' }
-    }, null, { session });
-
-    if (similarProblem) {
-      throw Object.assign(
-        new Error('A similar problem may already exist'),
-        { code: 'POSSIBLE_DUPLICATE', existingProblemId: similarProblem._id }
-      );
-    }
-  }
 
       const [created] = await Problem.create([{
         title,
@@ -183,8 +164,8 @@ const getAllProblems = async (req, res) => {
         .sort(sortOption)
         .skip(parseInt(skip))
         .limit(parseInt(limit))
-        .select('-submissions'),
-
+        .select('-submissions')
+        .select('title category painLevel frequency description status priorityScore createdAt deadline upvotes'),
       Problem.countDocuments(filter)
 
     ]);
