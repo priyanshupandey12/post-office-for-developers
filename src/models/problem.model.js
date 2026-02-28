@@ -38,14 +38,6 @@ const problemSchema = new mongoose.Schema(
     required: [true, 'Description is required'],
     minlength: [50, 'Description must be at least 50 characters'],
     maxlength: [500, 'Description must be less than 500 characters'],
-    validate: {
-      validator: function(desc) {
-        const blockedWords = ['i want an app', 'build me', 'create a website', 'make an app', 'develop a'];
-        const descLower = desc.toLowerCase();
-        return !blockedWords.some(phrase => descLower.includes(phrase));
-      },
-      message: 'Description should explain the problem, not suggest a solution'
-    }
     },
 
     painLevel: {
