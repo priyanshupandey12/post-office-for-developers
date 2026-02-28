@@ -9,14 +9,6 @@ const problemSchema = new mongoose.Schema(
     trim: true,
     minlength: [20, 'Title must be at least 20 characters'],
     maxlength: [100, 'Title must be less than 100 characters'],
-    validate: {
-      validator: function(title) {
-        const blockedWords = ['app', 'website', 'platform', 'system', 'build', 'create', 'make', 'develop'];
-        const titleLower = title.toLowerCase();
-        return !blockedWords.some(word => titleLower.includes(word));
-      },
-      message: 'Title should describe a problem/friction, not a solution. Avoid words like app, website, build, create etc.'
-    }
     },
 
     category: {
