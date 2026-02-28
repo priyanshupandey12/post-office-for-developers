@@ -1,6 +1,7 @@
 const User=require('../models/user.model')
 const Problem=require('../models/problem.model')
 const mongoose = require('mongoose');
+const logger = require('../middleware/logger.middleware');
 
 const createProblem=async(req,res)=>{
      const session = await mongoose.startSession();
@@ -61,6 +62,12 @@ const createProblem=async(req,res)=>{
       problem = created;
     });
 
+        logger.info('Problem created', {
+      problemId: problem._id,
+      userId: req.user._id,
+      remainingThisMonth: 2 - (problemsThisMonth + 1)
+    });
+
 
     return res.status(201).json({
       success: true,
@@ -70,21 +77,28 @@ const createProblem=async(req,res)=>{
     });
 
   } catch (error) {
-    if (error.name === "ValidationError") {
+ if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map(e => e.message);
+      logger.warn('Problem creation failed validation', { userId: req.user?._id, messages });
       return res.status(400).json({
         success: false,
-        error: "Validation failed",
+        error: 'Validation failed',
         details: messages
       });
     }
+
     if (error.code === 'LIMIT_REACHED') {
-  return res.status(403).json({ success: false, error: error.message });
-}
-    console.error("Create problem error:", error);
+      logger.warn('Monthly problem limit reached', {
+        userId: req.user?._id,
+        limit: 2
+      });
+      return res.status(403).json({ success: false, error: error.message });
+    }
+
+    logger.error('Failed to create problem', { error, userId: req.user?._id });
     return res.status(500).json({
       success: false,
-      error: "Something went wrong. Please try again."
+      error: 'Something went wrong. Please try again.'
     });
   }  finally {
   session.endSession();
@@ -170,6 +184,15 @@ const getAllProblems = async (req, res) => {
 
     ]);
 
+       logger.info('Problems fetched', {
+      userId: req.user?._id,
+      filter,
+      sortBy,
+      page,
+      limit,
+      total
+    });
+
     res.json({
       success: true,
       count: problems.length,
@@ -182,7 +205,7 @@ const getAllProblems = async (req, res) => {
   }
   catch (error) {
 
-    console.error('Get all problems error:', error);
+    logger.error('Failed to fetch problems', { error, userId: req.user?._id, query: req.query });
 
     res.status(500).json({
       success: false,
@@ -204,7 +227,7 @@ const getProblemById = async (req, res) => {
     }
 
     const problem = await Problem.findById(id)
-      .populate('postedBy', 'name profilePicture bio location clerkId')
+      .populate('postedBy', 'name profilePicture bio location')
       .populate({
         path: 'submissions',
         populate: {
@@ -216,16 +239,17 @@ const getProblemById = async (req, res) => {
       .populate('selectedWinner', 'title developerId votes techStack githubLink liveLink');
 
     if (!problem) {
+       logger.warn('Problem not found', { problemId: id, userId: req.user?._id });
       return res.status(404).json({ success: false, error: 'Problem not found' });
     }
 
   
     Problem.findByIdAndUpdate(id, { $inc: { views: 1 } }).exec();
-
+    logger.info('Problem fetched', { problemId: id, userId: req.user?._id });
     res.json({ success: true, problem });
 
   } catch (error) {
-    console.error('Get problem by ID error:', error);
+    logger.error('Failed to fetch problem by ID', { error, problemId: req.params.id, userId: req.user?._id });
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -246,10 +270,12 @@ const updateProblem = async (req, res) => {
     const problem = await Problem.findById(id);
 
     if (!problem) {
+        logger.warn('Problem not found on update attempt', { problemId: id, userId: req.user?._id });
       return res.status(404).json({ success: false, error: 'Problem not found' });
     }
 
     if (problem.postedBy.toString() !== req.user._id.toString()) {
+      logger.warn('Unauthorised problem update attempt', { problemId: id, userId: req.user?._id, ownerId: problem.postedBy });
       return res.status(403).json({ success: false, error: 'Not authorized' });
     }
 
@@ -300,6 +326,12 @@ if (deadline) {
 
     await problem.save();
 
+        logger.info('Problem updated', {
+      problemId: id,
+      userId: req.user._id,
+      updatedFields: Object.keys({ description, deadline }).filter(k => ({ description, deadline })[k])
+    });
+
     res.json({
       success: true,
       message: 'Problem updated successfully',
@@ -307,12 +339,16 @@ if (deadline) {
     });
 
   } catch (error) {
-    if (error.name === 'ValidationError') {
+  
+     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map(e => e.message);
+      logger.warn('Problem update failed validation', { problemId: req.params.id, userId: req.user?._id, messages });
       return res.status(400).json({ success: false, error: 'Validation failed', details: messages });
     }
-    console.error('Update problem error:', error);
+
+    logger.error('Failed to update problem', { error, problemId: req.params.id, userId: req.user?._id });
     res.status(500).json({ success: false, error: 'Failed to update problem. Please try again.' });
+  
   }
 };
 
@@ -391,6 +427,13 @@ const getMyProblems = async (req, res) => {
       problemsThisMonth,
       remainingPostsThisMonth: remainingPosts
     };
+        logger.info('User problems fetched', {
+      userId: req.user._id,
+      filter,
+      page,
+      limit,
+      total
+    });
 
     res.json({
       success: true,
@@ -403,11 +446,8 @@ const getMyProblems = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get my problems error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch your problems. Please try again.'
-    });
+    logger.error('Failed to fetch user problems', { error, userId: req.user?._id, query: req.query });
+    res.status(500).json({ success: false, error: 'Failed to fetch your problems. Please try again.' });
   }
 };
 
@@ -441,7 +481,12 @@ const voteProblem = async (req, res) => {
 
     problem.upvotes = problem.upvotedBy.length;
     await problem.save();
-
+    logger.info('Problem vote toggled', {
+      problemId: id,
+      userId,
+      action: alreadyVoted ? 'removed' : 'added'
+    });
+    
     res.json({
       success: true,
       message: alreadyVoted ? 'Upvote removed' : 'Problem upvoted',
@@ -450,7 +495,7 @@ const voteProblem = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Vote problem error:', error);
+   logger.error('Failed to toggle problem vote', { error, problemId: req.params.id, userId: req.user?._id });
     res.status(500).json({ success: false, error: 'Failed to vote. Please try again.' });
   }
 };

@@ -1,7 +1,7 @@
 const Submission = require('../models/submission.model');
 const Problem = require('../models/problem.model');
 const mongoose = require('mongoose');
-
+const logger = require('../middleware/logger.middleware');
 
 const createSubmission = async (req, res) => {
   try {
@@ -57,6 +57,11 @@ if (submissionCount >= 10) {
           $set: { status: 'in_review' }
          });
 
+    logger.info('Submission created', {
+      submissionId: submission._id,
+      problemId,
+      userId: req.user._id
+    });
 
     res.status(201).json({
       success: true,
@@ -72,8 +77,8 @@ if (submissionCount >= 10) {
       const messages = Object.values(error.errors).map(e => e.message);
       return res.status(400).json({ success: false, error: 'Validation failed', details: messages });
     }
-    console.error('Create submission error:', error);
-    res.status(500).json({ success: false, error: 'Something went Wrong' });
+     logger.error('Failed to create submission', { error, problemId: req.body.problemId, userId: req.user?._id });
+    res.status(500).json({ success: false, error: 'Failed to create submission. Please try again.' });
   }
 };
 
@@ -86,8 +91,12 @@ const getSubmissionsByProblem = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid problem ID' });
     }
 
-    const problem = await Problem.findById(problemId);
+    const problem = await Problem.findById(problemId).select('_id').lean();
     if (!problem) {
+          logger.warn('Submissions requested for non-existent problem', {
+        problemId,
+        userId: req.user?._id
+      });
       return res.status(404).json({ success: false, error: 'Problem not Found' });
     }
 
@@ -106,8 +115,12 @@ const getSubmissionsByProblem = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get submissions error:', error);
-    res.status(500).json({ success: false, error: 'Submissions fetch nahi ho payi' });
+     logger.error('Failed to fetch submissions for problem', {
+      error,
+      problemId: req.params.problemId,
+      userId: req.user?._id
+    });
+    res.status(500).json({ success: false, error: 'Failed to fetch submissions for problem. Please try again.' });
   }
 };
 
@@ -138,6 +151,13 @@ const getMySubmissions = async (req, res) => {
       accepted: await Submission.countDocuments({ developerId: req.user._id, status: 'accepted' }),
     };
 
+       logger.info('User submissions fetched', {
+      userId: req.user._id,
+      page,
+      limit,
+      total: stats.total
+    });
+
     res.json({
       success: true,
       count: submissions.length,
@@ -149,8 +169,8 @@ const getMySubmissions = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get my submissions error:', error);
-    res.status(500).json({ success: false, error: 'Something went wrong' });
+  logger.error('Failed to fetch user submissions', { error, userId: req.user?._id, query: req.query });
+    res.status(500).json({ success: false, error: 'Failed to fetch your submissions. Please try again.' });
   }
 };
 
@@ -168,17 +188,22 @@ const getSubmissionById = async (req, res) => {
       .populate('problemId', 'title category deadline status');
 
     if (!submission) {
-      return res.status(404).json({ success: false, error: 'Submission nahi mili' });
+      return res.status(404).json({ success: false, error: 'Submission not found' });
     }
 
  
     Submission.findByIdAndUpdate(id, { $inc: { views: 1 } }).exec();
 
+      logger.info('Submission fetched by ID', {
+      submissionId: id,
+      userId: req.user?._id
+      });
     res.json({ success: true, submission });
 
   } catch (error) {
-    console.error('Get submission error:', error);
-    res.status(500).json({ success: false, error: 'Submission fetch nahi ho payi' });
+
+    logger.error('Failed to fetch submission by ID', { error, submissionId: req.params.id, userId: req.user?._id });
+    res.status(500).json({ success: false, error: 'Failed to fetch submission. Please try again.' });
   }
 };
 
@@ -191,20 +216,20 @@ const updateSubmission = async (req, res) => {
     const submission = await Submission.findById(id);
 
     if (!submission) {
-      return res.status(404).json({ success: false, error: 'Submission nahi mili' });
+      return res.status(404).json({ success: false, error: 'Submission not found' });
     }
 
     if (submission.developerId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, error: 'Aap sirf apni submission edit kar sakte ho' });
+      return res.status(403).json({ success: false, error: 'You can only edit your own submission' });
     }
 
 
     if (submission.isWinner) {
-      return res.status(400).json({ success: false, error: 'Winner submission edit nahi ho sakti' });
+      return res.status(400).json({ success: false, error: 'Winner submission cannot be edited' });
     }
 
     if (!['draft', 'submitted'].includes(submission.status)) {
-      return res.status(400).json({ success: false, error: 'Yeh submission ab edit nahi ho sakti' });
+      return res.status(400).json({ success: false, error: 'This submission cannot be edited anymore' });
     }
 
 
@@ -218,15 +243,15 @@ const updateSubmission = async (req, res) => {
 
     await submission.save();
 
-    res.json({ success: true, message: 'Submission update ho gayi', submission });
+    res.json({ success: true, message: 'Submission updated successfully', submission });
 
   } catch (error) {
     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map(e => e.message);
       return res.status(400).json({ success: false, error: 'Validation failed', details: messages });
     }
-    console.error('Update submission error:', error);
-    res.status(500).json({ success: false, error: 'Update nahi ho payi, dobara try karo' });
+      logger.error('Failed to update submission', { error, submissionId: req.params.id, userId: req.user?._id });
+    res.status(500).json({ success: false, error: 'Failed to update submission. Please try again.' });
   }
 };
 
@@ -268,12 +293,12 @@ const voteSubmission = async (req, res) => {
     const submission = await Submission.findById(id);
 
     if (!submission) {
-      return res.status(404).json({ success: false, error: 'Submission nahi mili' });
+      return res.status(404).json({ success: false, error: 'Submission not found' });
     }
 
  
     if (submission.developerId.toString() === userId.toString()) {
-      return res.status(403).json({ success: false, error: 'Aap apni submission pe vote nahi kar sakte' });
+      return res.status(403).json({ success: false, error: 'You cannot vote on your own submission' });
     }
 
     const alreadyVoted = submission.votedBy.includes(userId);
@@ -286,14 +311,14 @@ const voteSubmission = async (req, res) => {
 
     res.json({
       success: true,
-      message: alreadyVoted ? 'Vote wapas le liya' : 'Vote de diya',
+      message: alreadyVoted ? 'Vote removed' : 'Vote added',
       voteCount: submission.votedBy.length,
       hasVoted: !alreadyVoted
     });
 
   } catch (error) {
-    console.error('Vote submission error:', error);
-    res.status(500).json({ success: false, error: 'Vote nahi ho payi, dobara try karo' });
+    logger.error('Failed to vote on submission', { error, submissionId: req.params.id, userId: req.user?._id });
+    res.status(500).json({ success: false, error: 'Failed to vote on submission. Please try again.' });
   }
 };
 
@@ -308,11 +333,11 @@ const selectWinner = async (req, res) => {
     if (!problem) return res.status(404).json({ success: false, error: 'Problem not Found' });
 
     if (problem.postedBy.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, error: 'Sirf poster winner select kar sakta hai' });
+      return res.status(403).json({ success: false, error: 'Only the poster can select a winner' });
     }
 
     if (problem.selectedWinner) {
-      return res.status(400).json({ success: false, error: 'Winner already select ho chuka hai' });
+      return res.status(400).json({ success: false, error: 'Winner already selected' });
     }
 
     await Submission.updateMany({ problemId: problem._id }, { isWinner: false, status: 'submitted' });
@@ -327,11 +352,11 @@ const selectWinner = async (req, res) => {
 
     await User.findByIdAndUpdate(submission.developerId, { $inc: { wins: 1 } });
 
-    res.json({ success: true, message: 'Winner select ho gaya!', submission });
+    res.json({ success: true, message: 'Winner selected successfully!', submission });
 
   } catch (error) {
-    console.error('Select winner error:', error);
-    res.status(500).json({ success: false, error: 'Kuch gadbad ho gayi' });
+    logger.error('Select winner error:', { error, problemId: req.params.id });
+    res.status(500).json({ success: false, error: 'An error occurred while selecting the winner' });
   }
 };
 

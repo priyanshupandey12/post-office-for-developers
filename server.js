@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express=require('express');
 const {clerkMiddleware}=require('@clerk/express');
-const mongoSanitize = require('express-mongo-sanitize');
 const cookieParser=require('cookie-parser');
 const helmet = require("helmet");
 const morgan = require('morgan');
@@ -19,7 +18,6 @@ app.use(cors({
 }));
 
 app.use(express.json());
-app.use(mongoSanitize());
 app.use(helmet());
 app.use(globalLimiter);
 const morganStream = {

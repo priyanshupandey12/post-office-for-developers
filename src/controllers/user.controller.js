@@ -1,6 +1,7 @@
 const User=require('../models/user.model')
 const Submission = require('../models/submission.model');
 const { clerkClient } = require('@clerk/express');
+const logger = require('../middleware/logger.middleware');
 
 const getOrCreateUser = async (req, res, next) => {
   try {
@@ -11,7 +12,7 @@ const getOrCreateUser = async (req, res, next) => {
     
   
     if (!user) {
-      console.log(' User not found in DB, fetching from Clerk...');
+      logger.debug('User not found in DB, fetching from Clerk...', { clerkUserId });
     
       const clerkUser = await clerkClient.users.getUser(clerkUserId);
       
@@ -24,14 +25,17 @@ const getOrCreateUser = async (req, res, next) => {
         role: 'user'
       });
       
-      console.log(' New user created:', user.email);
+       logger.info('New user created', { email: user.email, clerkUserId });
     }
     
 
     req.user = user;
     next();
   } catch (error) {
-    console.error(' Get/Create user error:', error);
+    logger.error('Get/Create user error', { 
+      error,                      
+      clerkUserId: req.auth?.sub  
+    });
     return res.status(500).json({ 
       success: false,
       error: 'Failed to process user data',
@@ -62,7 +66,7 @@ const getCurrentUser = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Get current user error:', error);
+     logger.error('Failed to get current user', { error, userId: req.user?._id });
     res.status(500).json({ 
       success: false,
       error: error.message 
@@ -83,10 +87,6 @@ const updateProfile = async (req, res) => {
     });
 
 
-    if (updateData.role && updateData.role !== 'developer') {
-      delete updateData.role;
-    }
-
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
       updateData,
@@ -94,19 +94,22 @@ const updateProfile = async (req, res) => {
     ).select('-clerkId -email -totalProblemsPosted -totalSubmissions -wins -rating -portfolio');
 
     if (!updatedUser) {
+      logger.warn('Profile update attempted for non-existent user', { userId: req.user._id });
       return res.status(404).json({ success: false, error: 'User not found' });
     }
-
+ logger.info('User profile updated', { userId: req.user._id, updatedFields: Object.keys(updateData) });
     res.json({ success: true, message: 'Profile update ho gaya!', user: updatedUser });
 
   } catch (error) {
     if (error.name === 'ValidationError') {
+       logger.warn('Profile update failed validation', { userId: req.user?._id, error });
       return res.status(400).json({
         success: false,
         error: Object.values(error.errors).map(e => e.message).join(', ')
       });
     }
-    res.status(500).json({ success: false, error: 'Profile update nahi ho payi' });
+     logger.error('Failed to update user profile', { error, userId: req.user?._id });
+     res.status(500).json({ success: false, error: 'Failed to update profile' });
   }
 };
 
@@ -167,12 +170,12 @@ const getLeaderboard = async (req, res) => {
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
     .map((d, idx) => ({ ...d, rank: idx + 1 }));
-
+  logger.info('Leaderboard fetched', { period, limit, resultCount: leaderboard.length });
     res.json({ success: true, count: leaderboard.length, period, leaderboard });
 
   } catch (error) {
-    console.error('Leaderboard error:', error);
-    res.status(500).json({ success: false, error: error.message });
+      logger.error('Failed to fetch leaderboard', { error, period: req.query.period, limit: req.query.limit });
+    res.status(500).json({ success: false, error: 'Failed to fetch leaderboard' });
   }
 };
 
