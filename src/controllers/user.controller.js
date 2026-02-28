@@ -77,12 +77,20 @@ const getCurrentUser = async (req, res) => {
 const updateProfile = async (req, res) => {
   try {
   
-    const allowedFields = ['bio', 'skills', 'githubUrl', 'linkedinUrl', 'websiteUrl'];
-    
+ const allowedFields = ['bio', 'githubUrl', 'linkedinUrl', 'websiteUrl'];
+    const urlFields = ['githubUrl', 'linkedinUrl', 'websiteUrl'];
+
     const updateData = {};
     allowedFields.forEach(field => {
-      if (req.body[field] !== undefined) {
-        updateData[field] = req.body[field];
+      const value = req.body[field];
+      if (value === undefined) return;
+
+      if (urlFields.includes(field)) {
+        if (value === '' || /^https?:\/\/.+/.test(value)) {
+          updateData[field] = value;
+        }
+      } else {
+        updateData[field] = value;
       }
     });
 
