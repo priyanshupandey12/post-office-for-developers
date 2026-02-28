@@ -2,10 +2,10 @@ const { z } = require("zod");
 
 const urlField = z
   .string()
-  .url()
+  .transform(val => val.trim())
   .refine(
-    (url) => url.startsWith("http://") || url.startsWith("https://"),
-    { message: "URL must use HTTP/HTTPS" }
+    (val) => val === '' || /^https?:\/\/.+/.test(val),
+    { message: "Invalid URL" }
   )
   .optional();
 
