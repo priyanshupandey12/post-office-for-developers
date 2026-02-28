@@ -11,7 +11,7 @@ const cors=require('cors');
 const connectDb=require('./src/config/db')
 const app=express();
 
-
+app.set('trust proxy', 1);
 app.use(cors({
   origin: process.env.FRONTEND_URL, 
   credentials: true
